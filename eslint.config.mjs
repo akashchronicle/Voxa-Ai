@@ -10,14 +10,10 @@ const compat = new FlatCompat({
 });
 
 const eslintConfig = [
-  // 1. Base configs from Next.js
   ...compat.extends("next/core-web-vitals", "next/typescript"),
-
-  // 2. Global rule override
   {
-    files: ["**/*.ts", "**/*.tsx"],
     rules: {
-      "@typescript-eslint/no-unused-vars": "warn", // 👈 now it's just a warning
+      "@typescript-eslint/no-unused-vars": "warn", // 🔧 Changed from error → warn
     },
   },
 ];
