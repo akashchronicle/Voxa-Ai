@@ -128,9 +128,10 @@ export const DashboardSidebar=()=>{
             </SidebarGroupContent>
         </SidebarGroup> */}
         </SidebarContent> 
-        <SidebarFooter className="text-foreground px-6 py-4 border-t border-gray-100">
-            <DashboardUserButton/>
-        </SidebarFooter>
+        <SidebarFooter className="text-foreground px-6 py-4 pb-[160px] sm:pb-4 border-t border-gray-100">
+  <DashboardUserButton />
+</SidebarFooter>
+
         
         </Sidebar>
     )
