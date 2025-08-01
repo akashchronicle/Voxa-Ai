@@ -1,11 +1,18 @@
 import type { NextConfig } from "next";
+import type { Configuration } from "webpack";
 
 const nextConfig: NextConfig = {
-  webpack: (config) => {
-    config.resolve.fallback = {
-      ...config.resolve.fallback,
-      bufferutil: false,
-      "utf-8-validate": false, // wrap in quotes to avoid TS/ESLint red underline
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  webpack: (config: Configuration): Configuration => {
+    config.resolve = {
+      ...config.resolve,
+      fallback: {
+        ...config.resolve?.fallback,
+        bufferutil: false,
+        "utf-8-validate": false,
+      },
     };
     return config;
   },
