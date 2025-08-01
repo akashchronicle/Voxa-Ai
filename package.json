@@ -1,5 +1,5 @@
 {
-  "name": "frontend",
+  "name": "voxaai",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -63,6 +63,7 @@
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
+    "drizzle-kit": "^0.31.4",
     "drizzle-orm": "^0.44.2",
     "embla-carousel-react": "^8.6.0",
     "framer-motion": "^12.23.9",
