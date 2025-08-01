@@ -22,6 +22,13 @@ const playfair = Playfair_Display({
 export const metadata: Metadata = {
   title: "Voxa AI",
   description: "The Voice in the Call That Never Forgets.",
+ icons: {
+    icon: [
+      { url: "/logoVox.png", type: "image/png", sizes: "32x32" },
+      { url: "/logoVox.png", type: "image/png", sizes: "64x64" },
+      { url: "/logoVox.png", type: "image/png", sizes: "128x128" }
+    ],
+  },
 };
 
 export default function RootLayout({
