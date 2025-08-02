@@ -60,6 +60,12 @@ export const CallLobby = ({ onJoin }: Props) => {
             <h6 className="text-lg font-medium">Ready to join?</h6>
             <p className="text-sm">Set up your call before joining</p>
           </div>
+          <div className="text-sm italic text-red-600 justify-center">
+  <p className="animate-pulse">OpenAI credits are unavailable — avatar agent won’t respond.</p>
+  <p className="animate-pulse">Azure voice agents will reply for demo purposes.</p>
+    <p className="animate-pulse">Full responses resume, once OpenAI credits are restored.</p>
+</div>
+
           <VideoPreview
             DisabledVideoPreview={
               hasBrowserMediaPermission
@@ -84,8 +90,12 @@ export const CallLobby = ({ onJoin }: Props) => {
                 Join Call
             </Button>
             </div>
+            
+
+
 
         </div>
+        
       </div>
     </div>
   );
