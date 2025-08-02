@@ -18,6 +18,7 @@ import {
   Bot
 } from 'lucide-react';
 import { useAzureVoiceAgent } from '@/hooks/useAzureVoiceAgent';
+import { toast } from 'sonner';
 
 interface VoiceAgentPanelProps {
   agentInstructions: string;
@@ -61,6 +62,19 @@ export const VoiceAgentPanel: React.FC<VoiceAgentPanelProps> = ({
 
   const handleStopSpeaking = () => {
     stopSpeaking();
+    toast.success('AI speech stopped');
+  };
+
+  const handleStopSpeakingWithFeedback = () => {
+    // Add visual feedback
+    const button = document.querySelector('[title="Stop AI from speaking"]') as HTMLButtonElement;
+    if (button) {
+      button.style.transform = 'scale(0.95)';
+      setTimeout(() => {
+        button.style.transform = 'scale(1)';
+      }, 150);
+    }
+    handleStopSpeaking();
   };
 
   const handleClearHistory = () => {
@@ -73,6 +87,20 @@ export const VoiceAgentPanel: React.FC<VoiceAgentPanelProps> = ({
       onAgentResponse(lastResponse);
     }
   }, [lastResponse, onAgentResponse]);
+
+  // Add keyboard shortcut for stopping speech
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && isSpeaking) {
+        handleStopSpeakingWithFeedback();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isSpeaking, handleStopSpeakingWithFeedback]);
 
   return (
     <Card className="w-full max-w-md">
@@ -135,13 +163,15 @@ export const VoiceAgentPanel: React.FC<VoiceAgentPanelProps> = ({
           </Button>
 
           <Button
-            onClick={handleStopSpeaking}
-            variant="outline"
+            onClick={handleStopSpeakingWithFeedback}
+            variant={isSpeaking ? "destructive" : "outline"}
             size="sm"
             disabled={!isSpeaking}
-            className="flex-shrink-0"
+            className="flex-shrink-0 transition-transform"
+            title="Stop AI from speaking"
           >
             <VolumeX className="h-4 w-4" />
+            {isSpeaking && <span className="ml-1 text-xs">Stop</span>}
           </Button>
 
           <Button
@@ -157,7 +187,8 @@ export const VoiceAgentPanel: React.FC<VoiceAgentPanelProps> = ({
         {/* Instructions */}
         <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
           <p><strong>Tip:</strong> You can interrupt the AI while it's speaking by talking again.</p>
-          <p><strong>Stop:</strong> Use the volume button to stop AI from speaking.</p>
+          <p><strong>Stop:</strong> Use the volume button or press <kbd className="px-1 py-0.5 bg-gray-200 rounded text-xs">Esc</kbd> to immediately stop AI from speaking.</p>
+          <p><strong>Note:</strong> The stop button will immediately halt any ongoing speech.</p>
         </div>
 
         {/* Live Transcript */}
@@ -188,6 +219,16 @@ export const VoiceAgentPanel: React.FC<VoiceAgentPanelProps> = ({
             <span className="text-sm">Interrupting AI to respond to your new input...</span>
           </div>
         )}
+
+        {/* Speech Stopping Indicator */}
+        {!isSpeaking && isProcessing && (
+          <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-md">
+            <div className="h-4 w-4 bg-blue-500 rounded-full animate-pulse" />
+            <span className="text-sm">Processing your request...</span>
+          </div>
+        )}
+
+
 
         {/* Last Response */}
         {lastResponse && (

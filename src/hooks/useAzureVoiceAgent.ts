@@ -37,6 +37,55 @@ export const useAzureVoiceAgent = (config: VoiceAgentConfig) => {
   const configRef = useRef(config);
   const currentSpeakingRef = useRef<string | null>(null);
   const shouldCancelSpeechRef = useRef(false);
+  const speechConfigRef = useRef<SpeechSDK.SpeechConfig | null>(null);
+  const currentAudioContextRef = useRef<AudioContext | null>(null);
+  const currentUtteranceRef = useRef<any>(null);
+  const pendingSpeechCountRef = useRef(0);
+
+  // Helper function to create browser speech utterance with event handlers
+  const createBrowserSpeechUtterance = useCallback((text: string, context: string = 'default') => {
+    const utterance = new (window as any).SpeechSynthesisUtterance(text);
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+    utterance.volume = 1;
+    
+    // Store the current utterance
+    currentUtteranceRef.current = utterance;
+    
+    // Set up event handlers for browser speech synthesis
+    utterance.onstart = () => {
+      setState(prev => ({ 
+        ...prev, 
+        isSpeaking: true,
+        error: null // Clear any previous errors
+      }));
+    };
+    
+    utterance.onend = () => {
+      setState(prev => ({ ...prev, isSpeaking: false }));
+      currentSpeakingRef.current = null;
+      currentUtteranceRef.current = null;
+      shouldCancelSpeechRef.current = false;
+    };
+    
+    utterance.onerror = (event: any) => {
+      setState(prev => ({ ...prev, isSpeaking: false }));
+      currentSpeakingRef.current = null;
+      currentUtteranceRef.current = null;
+      shouldCancelSpeechRef.current = false;
+    };
+    
+    // Add pause and resume handlers for better state management
+    // utterance.onpause = () => {
+    //   console.log(`⏸️ Browser speech synthesis paused (${context})`);
+    // };
+    
+    // utterance.onresume = () => {
+    //   console.log(`▶️ Browser speech synthesis resumed (${context})`);
+    // };
+    
+    return utterance;
+  }, []);
 
   // Update config ref when config changes
   useEffect(() => {
@@ -45,7 +94,9 @@ export const useAzureVoiceAgent = (config: VoiceAgentConfig) => {
 
   // Initialize Azure Speech services
   const initializeSpeechServices = useCallback(async () => {
-    if (isInitializedRef.current) return;
+    if (isInitializedRef.current) {
+      return;
+    }
     
     try {
       // Check if required config values are present
@@ -67,6 +118,9 @@ export const useAzureVoiceAgent = (config: VoiceAgentConfig) => {
       speechConfig.speechRecognitionLanguage = 'en-US';
       speechConfig.enableDictation();
 
+      // Store speech config reference
+      speechConfigRef.current = speechConfig;
+
       // Initialize Audio Config with specific device to avoid conflicts
       audioConfigRef.current = SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
 
@@ -76,8 +130,8 @@ export const useAzureVoiceAgent = (config: VoiceAgentConfig) => {
         audioConfigRef.current
       );
 
-      // Initialize Synthesizer
-      synthesizerRef.current = new SpeechSDK.SpeechSynthesizer(speechConfig);
+      // Initialize Synthesizer with NO audio output (we'll handle playback ourselves)
+      synthesizerRef.current = new SpeechSDK.SpeechSynthesizer(speechConfig, null); // null for no audio output
 
       // Set up event handlers
       setupRecognizerEvents();
@@ -93,40 +147,64 @@ export const useAzureVoiceAgent = (config: VoiceAgentConfig) => {
     }
   }, []); // No dependencies - uses ref instead
 
-  // Set up speech synthesis events
+  // Set up speech synthesis events (minimal setup for custom audio playback)
   const setupSynthesizerEvents = useCallback(() => {
-    if (!synthesizerRef.current) return;
+    if (!synthesizerRef.current) {
+      return;
+    }
 
+    // We only need synthesisStarted to set the initial speaking state
+    // The actual playback control is handled by the custom audio element
     synthesizerRef.current.synthesisStarted = (_s: any, _e: any) => {
-      setState(prev => ({ ...prev, isSpeaking: true }));
+      setState(prev => ({ 
+        ...prev, 
+        isSpeaking: true,
+        error: null // Clear any previous errors
+      }));
     };
 
-    synthesizerRef.current.synthesisCompleted = (_s: any, _e: any) => {
-      setState(prev => ({ ...prev, isSpeaking: false }));
-      currentSpeakingRef.current = null;
-      shouldCancelSpeechRef.current = false;
-    };
-
-    synthesizerRef.current.SynthesisCanceled = (_s: any, _e: any) => {
-      setState(prev => ({ ...prev, isSpeaking: false }));
-      currentSpeakingRef.current = null;
-      shouldCancelSpeechRef.current = false;
-    };
+    // synthesisCompleted and SynthesisCanceled are handled in the speakResponse callback
+    // since we're using custom audio elements for playback control
   }, []);
 
-  // Stop current speech immediately
+  // Stop current speech immediately with proper cleanup
   const stopCurrentSpeech = useCallback(() => {
     shouldCancelSpeechRef.current = true;
     
+    // Stop custom audio element if it's playing
+    if (currentUtteranceRef.current) {
+      const audio = currentUtteranceRef.current as HTMLAudioElement;
+      audio.pause();
+      audio.currentTime = 0;
+      currentUtteranceRef.current = null;
+    }
+    
+    // Stop any ongoing speech synthesis
     if (synthesizerRef.current) {
-      synthesizerRef.current.close();
-      // Recreate synthesizer
-      const speechConfig = SpeechSDK.SpeechConfig.fromSubscription(
-        configRef.current.speechKey,
-        configRef.current.speechRegion
-      );
-      synthesizerRef.current = new SpeechSDK.SpeechSynthesizer(speechConfig);
-      setupSynthesizerEvents();
+      try {
+        synthesizerRef.current.close();
+      } catch (error) {
+        // Silent error handling
+      }
+    }
+
+    // Close and recreate synthesizer to ensure clean state
+    if (synthesizerRef.current) {
+      try {
+        synthesizerRef.current.close();
+      } catch (error) {
+        // Silent error handling
+      }
+    }
+
+    // Recreate synthesizer with fresh state (no audio output)
+    if (speechConfigRef.current) {
+      try {
+        synthesizerRef.current = new SpeechSDK.SpeechSynthesizer(speechConfigRef.current, null); // null for no audio output
+        setupSynthesizerEvents();
+      } catch (error) {
+        // Silent error handling
+      }
     }
     
     setState(prev => ({ ...prev, isSpeaking: false }));
@@ -145,9 +223,13 @@ export const useAzureVoiceAgent = (config: VoiceAgentConfig) => {
         // If AI is speaking, stop it immediately and respond to new input
         if (state.isSpeaking) {
           stopCurrentSpeech();
+          // Add a small delay to ensure speech is stopped before processing new input
+          setTimeout(() => {
+            processUserInput(transcript);
+          }, 200);
+        } else {
+          processUserInput(transcript);
         }
-        
-        processUserInput(transcript);
       }
     };
 
@@ -170,7 +252,10 @@ export const useAzureVoiceAgent = (config: VoiceAgentConfig) => {
 
   // Process user input with Azure OpenAI
   const processUserInput = useCallback(async (userInput: string) => {
-    if (!userInput.trim()) return;
+    
+    if (!userInput.trim() || shouldCancelSpeechRef.current) {
+      return;
+    }
 
     setState(prev => ({ ...prev, isProcessing: true }));
 
@@ -201,6 +286,7 @@ export const useAzureVoiceAgent = (config: VoiceAgentConfig) => {
 
       const data = await response.json();
       const assistantResponse = data.choices[0].message.content;
+     
 
       // Add assistant response to conversation history
       conversationHistoryRef.current.push({ role: 'assistant', content: assistantResponse });
@@ -211,8 +297,13 @@ export const useAzureVoiceAgent = (config: VoiceAgentConfig) => {
         isProcessing: false 
       }));
 
-      // Synthesize and speak the response
-      speakResponse(assistantResponse);
+      // Only speak if we haven't been asked to cancel
+      if (!shouldCancelSpeechRef.current) {
+        
+        speakResponse(assistantResponse);
+      } else {
+        console.log('❌ Skipping speech - should cancel is true');
+      }
 
     } catch (error) {
       setState(prev => ({ 
@@ -225,31 +316,92 @@ export const useAzureVoiceAgent = (config: VoiceAgentConfig) => {
 
   // Synthesize and speak the response
   const speakResponse = useCallback((text: string) => {
-    if (!synthesizerRef.current || shouldCancelSpeechRef.current) return;
+    if (!synthesizerRef.current || shouldCancelSpeechRef.current) {
+      // Fallback to browser speech synthesis
+      if ((window as any).speechSynthesis) {
+        const utterance = createBrowserSpeechUtterance(text, 'primary-fallback');
+        (window as any).speechSynthesis.speak(utterance);
+        return;
+      } else {
+        return;
+      }
+    }
 
     // Store the current speaking text
     currentSpeakingRef.current = text;
 
     // Add a small delay to ensure synthesizer is ready
     setTimeout(() => {
-      if (shouldCancelSpeechRef.current) return;
+      if (shouldCancelSpeechRef.current || !synthesizerRef.current) {
+        // Fallback to browser speech synthesis
+        if ((window as any).speechSynthesis) {
+          const utterance = createBrowserSpeechUtterance(text, 'delay-fallback');
+          (window as any).speechSynthesis.speak(utterance);
+        }
+        return;
+      }
       
       synthesizerRef.current?.speakTextAsync(
         text,
         (result: any) => {
           if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
-            // Audio is playing
+            // Create custom audio element for playback control
+            if (result.audioData) {
+              const blob = new Blob([result.audioData], { type: 'audio/wav' });
+              const url = URL.createObjectURL(blob);
+              
+              const audio = new Audio(url);
+              currentUtteranceRef.current = audio;
+              
+              // Listen to when the audio finishes playing
+              audio.addEventListener('ended', () => {
+                setState(prev => ({ ...prev, isSpeaking: false }));
+                currentSpeakingRef.current = null;
+                currentUtteranceRef.current = null;
+                shouldCancelSpeechRef.current = false;
+                URL.revokeObjectURL(url); // Clean up the blob URL
+              });
+              
+              audio.addEventListener('error', (event) => {
+                setState(prev => ({ ...prev, isSpeaking: false }));
+                currentSpeakingRef.current = null;
+                currentUtteranceRef.current = null;
+                shouldCancelSpeechRef.current = false;
+                URL.revokeObjectURL(url);
+              });
+              
+              // Start playing the audio
+              audio.play().catch((err) => {
+                setState(prev => ({ ...prev, isSpeaking: false }));
+                currentSpeakingRef.current = null;
+                currentUtteranceRef.current = null;
+                shouldCancelSpeechRef.current = false;
+                URL.revokeObjectURL(url);
+              });
+            } else {
+              setState(prev => ({ ...prev, isSpeaking: false }));
+            }
           } else {
+            // Fallback to browser speech synthesis
+            if ((window as any).speechSynthesis) {
+              const utterance = createBrowserSpeechUtterance(text, 'azure-fallback');
+              (window as any).speechSynthesis.speak(utterance);
+            }
             setState(prev => ({
               ...prev,
-              error: `Speech synthesis failed: ${result.reason}`
+              error: `Azure speech synthesis failed: ${result.reason}`
             }));
           }
         },
         (error: any) => {
+          // Fallback to browser speech synthesis
+          if ((window as any).speechSynthesis) {
+            const utterance = createBrowserSpeechUtterance(text, 'azure-error-fallback');
+            (window as any).speechSynthesis.speak(utterance);
+          }
           setState(prev => ({
             ...prev,
-            error: `Speech synthesis error: ${error}`
+            error: `Azure speech synthesis error: ${error}`
           }));
         }
       );
@@ -259,7 +411,49 @@ export const useAzureVoiceAgent = (config: VoiceAgentConfig) => {
   // Stop speaking immediately
   const stopSpeaking = useCallback(() => {
     stopCurrentSpeech();
+    
+    // Reset pending speech counter
+    pendingSpeechCountRef.current = 0;
+    
+    // Stop custom audio element if it's playing
+    if (currentUtteranceRef.current) {
+      const audio = currentUtteranceRef.current as HTMLAudioElement;
+      audio.pause();
+      audio.currentTime = 0;
+      setState(prev => ({ ...prev, isSpeaking: false }));
+      currentSpeakingRef.current = null;
+      currentUtteranceRef.current = null;
+      shouldCancelSpeechRef.current = false;
+    }
+    
+    // Also stop browser speech synthesis if it's running
+    if ((window as any).speechSynthesis) {
+      (window as any).speechSynthesis.cancel();
+      // Reset speaking state immediately
+      setState(prev => ({ ...prev, isSpeaking: false }));
+      currentSpeakingRef.current = null;
+      shouldCancelSpeechRef.current = false;
+    }
   }, [stopCurrentSpeech]);
+
+  // Check if speech synthesis is actually speaking
+  const checkSpeakingStatus = useCallback(() => {
+    // Only check browser speech synthesis status, not Azure Speech
+    if ((window as any).speechSynthesis && !synthesizerRef.current) {
+      const isActuallySpeaking = (window as any).speechSynthesis.speaking;
+      
+      // If state says we're speaking but we're not actually speaking, fix the state
+      if (state.isSpeaking && !isActuallySpeaking) {
+        setState(prev => ({ ...prev, isSpeaking: false }));
+        currentSpeakingRef.current = null;
+        shouldCancelSpeechRef.current = false;
+      }
+      // If state says we're not speaking but we are actually speaking, fix the state
+      else if (!state.isSpeaking && isActuallySpeaking) {
+        setState(prev => ({ ...prev, isSpeaking: true }));
+      }
+    }
+  }, [state.isSpeaking]);
 
   // Start listening
   const startListening = useCallback(() => {
@@ -267,6 +461,9 @@ export const useAzureVoiceAgent = (config: VoiceAgentConfig) => {
       initializeSpeechServices();
       return;
     }
+
+    // Reset cancel flag when starting new session
+    shouldCancelSpeechRef.current = false;
 
     // Add a small delay to prevent conflicts with Stream Video
     setTimeout(() => {
@@ -300,18 +497,49 @@ export const useAzureVoiceAgent = (config: VoiceAgentConfig) => {
     }
 
     return () => {
+      // Cleanup function
+      shouldCancelSpeechRef.current = true;
+      
       if (recognizerRef.current) {
-        recognizerRef.current.close();
+        try {
+          recognizerRef.current.close();
+        } catch (error) {
+          // Silent error handling
+        }
       }
       if (synthesizerRef.current) {
-        synthesizerRef.current.close();
+        try {
+          synthesizerRef.current.close();
+        } catch (error) {
+          // Silent error handling
+        }
       }
       if (audioConfigRef.current) {
-        audioConfigRef.current.close();
+        try {
+          audioConfigRef.current.close();
+        } catch (error) {
+          // Silent error handling
+        }
       }
       isInitializedRef.current = false;
     };
   }, []); // Empty dependency array - only run once
+
+  // Periodic check to ensure speaking state is accurate (only for browser speech synthesis)
+  useEffect(() => {
+    // Only run periodic checks if we're using browser speech synthesis (no Azure synthesizer)
+    if (synthesizerRef.current) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      if (state.isSpeaking) {
+        checkSpeakingStatus();
+      }
+    }, 1000); // Check every 1 second when speaking
+
+    return () => clearInterval(interval);
+  }, [state.isSpeaking, checkSpeakingStatus]);
 
   return {
     // State
