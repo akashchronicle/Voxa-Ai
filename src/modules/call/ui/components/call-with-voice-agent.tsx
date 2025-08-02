@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useCallback } from 'react';
-import { VoiceAgentPanel } from '@/components/voice-agent/VoiceAgentPanel';
+import { CallVoiceAgentPanel } from '@/components/voice-agent/CallVoiceAgentPanel';
 import { CallLobby } from './call-lobby';
 import { CallActive } from './call-active';
 import { CallEnded } from './call-ended';
@@ -113,7 +113,7 @@ export const EnhancedCallUI: React.FC<EnhancedCallUIProps> = ({
           
           <CardContent className="flex-1 overflow-hidden">
             {showVoiceAgent ? (
-              <VoiceAgentPanel
+              <CallVoiceAgentPanel
                 agentInstructions={agentInstructions}
                 onAgentResponse={handleAgentResponse}
               />

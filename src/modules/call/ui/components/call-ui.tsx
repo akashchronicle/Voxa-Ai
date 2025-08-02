@@ -3,7 +3,7 @@ import { StreamTheme, useCall } from "@stream-io/video-react-sdk";
 import { CallLobby } from "./call-lobby";
 import { CallActive } from "./call-active";
 import { CallEnded } from "./call-ended";
-import { VoiceAgentPanel } from "@/components/voice-agent/VoiceAgentPanel";
+import { CallVoiceAgentPanel } from "@/components/voice-agent/CallVoiceAgentPanel";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -77,7 +77,7 @@ export const CallUI = ({ meetingName, agentInstructions }: Props) => {
               
               <CardContent className="flex-1 overflow-hidden">
                 {showVoiceAgent ? (
-                  <VoiceAgentPanel
+                  <CallVoiceAgentPanel
                     agentInstructions={agentInstructions}
                     onAgentResponse={handleAgentResponse}
                   />
