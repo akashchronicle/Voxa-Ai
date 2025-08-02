@@ -10,7 +10,7 @@ interface Props{
 
 const Layout=({children}:Props)=>{
     return (
-        <SidebarProvider>
+        <SidebarProvider defaultOpen={false}>
             <DashboardSidebar/>
             <main className="flex flex-col h-screen w-screen bg-muted">
                    <DashboardNavbar/>
