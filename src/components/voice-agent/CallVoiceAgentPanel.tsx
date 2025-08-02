@@ -2,21 +2,22 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { 
   Mic, 
   MicOff, 
-  Volume2, 
   VolumeX, 
   RotateCcw, 
   Loader2,
   MessageSquare,
   User,
   Bot,
-  AlertCircle
+  AlertCircle,
+  ChevronDown,
+  Clock,
+  Settings,
+  Sparkles
 } from 'lucide-react';
 import { useAzureVoiceAgent } from '@/hooks/useAzureVoiceAgent';
 import { toast } from 'sonner';
@@ -31,10 +32,11 @@ export const CallVoiceAgentPanel: React.FC<CallVoiceAgentPanelProps> = ({
   agentInstructions,
   onAgentResponse
 }) => {
-  const [isEnabled, setIsEnabled] = useState(false);
   const [isStreamAgentActive, setIsStreamAgentActive] = useState(false);
+  const [showHistory, setShowHistory] = useState(true);
   const call = useCall();
   const streamAgentCheckRef = useRef<NodeJS.Timeout | null>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   const {
     isListening,
@@ -61,7 +63,6 @@ export const CallVoiceAgentPanel: React.FC<CallVoiceAgentPanelProps> = ({
   useEffect(() => {
     const checkStreamAgent = () => {
       if (call) {
-        // Check if there are any AI participants in the call
         const aiParticipants = call.state.participants.filter(
           participant => participant.userId.includes('ai-') || 
                         participant.userId.includes('agent') ||
@@ -71,10 +72,7 @@ export const CallVoiceAgentPanel: React.FC<CallVoiceAgentPanelProps> = ({
       }
     };
 
-    // Check immediately
     checkStreamAgent();
-
-    // Set up periodic checking
     streamAgentCheckRef.current = setInterval(checkStreamAgent, 2000);
 
     return () => {
@@ -84,11 +82,22 @@ export const CallVoiceAgentPanel: React.FC<CallVoiceAgentPanelProps> = ({
     };
   }, [call]);
 
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (scrollAreaRef.current && showHistory) {
+      setTimeout(() => {
+        const scrollElement = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement;
+        if (scrollElement) {
+          scrollElement.scrollTop = scrollElement.scrollHeight;
+        }
+      }, 100);
+    }
+  }, [conversationHistory, lastResponse, showHistory]);
+
   const handleToggleListening = () => {
     if (isListening) {
       stopListening();
     } else {
-      // Check if Stream agent is active and warn user
       if (isStreamAgentActive) {
         toast.warning('Stream Video AI agent is already active. Consider using one agent at a time to avoid conflicts.');
       }
@@ -101,20 +110,9 @@ export const CallVoiceAgentPanel: React.FC<CallVoiceAgentPanelProps> = ({
     toast.success('AI speech stopped');
   };
 
-  const handleStopSpeakingWithFeedback = () => {
-    // Add visual feedback
-    const button = document.querySelector('[title="Stop AI from speaking"]') as HTMLButtonElement;
-    if (button) {
-      button.style.transform = 'scale(0.95)';
-      setTimeout(() => {
-        button.style.transform = 'scale(1)';
-      }, 150);
-    }
-    handleStopSpeaking();
-  };
-
   const handleClearHistory = () => {
     clearHistory();
+    toast.success('Conversation history cleared');
   };
 
   // Notify parent component of agent responses
@@ -128,7 +126,7 @@ export const CallVoiceAgentPanel: React.FC<CallVoiceAgentPanelProps> = ({
   React.useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape' && isSpeaking) {
-        handleStopSpeakingWithFeedback();
+        handleStopSpeaking();
       }
     };
 
@@ -136,187 +134,304 @@ export const CallVoiceAgentPanel: React.FC<CallVoiceAgentPanelProps> = ({
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [isSpeaking, handleStopSpeakingWithFeedback]);
+  }, [isSpeaking]);
+
+  const formatTime = () => {
+    return new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const getStatusColor = () => {
+    if (isListening) return 'text-green-600 bg-green-50 border-green-200';
+    if (isSpeaking) return 'text-blue-600 bg-blue-50 border-blue-200';
+    if (isProcessing) return 'text-amber-600 bg-amber-50 border-amber-200';
+    return 'text-slate-600 bg-slate-50 border-slate-200';
+  };
+
+  const getStatusText = () => {
+    if (isListening) return 'Listening';
+    if (isSpeaking) return 'Speaking';
+    if (isProcessing) return 'Processing';
+    return 'Ready';
+  };
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Bot className="h-5 w-5" />
-          Azure Voice Agent
-          <Badge variant={isEnabled ? "default" : "secondary"}>
-            {isEnabled ? "Active" : "Inactive"}
-          </Badge>
-        </CardTitle>
-      </CardHeader>
-      
-      <CardContent className="space-y-4">
-        {/* Stream Agent Warning */}
-        {isStreamAgentActive && (
-          <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-            <div className="flex items-center gap-2 mb-2">
-              <AlertCircle className="h-4 w-4 text-yellow-600" />
-              <span className="text-sm font-medium text-yellow-800">Stream AI Agent Active</span>
+    <div className="flex flex-col h-full bg-white">
+      {/* Compact Header */}
+      <div className="flex-shrink-0 p-3 border-b border-slate-200 bg-gradient-to-r from-slate-50 to-white">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center shadow-sm">
+              <Sparkles className="h-4 w-4 text-white" />
             </div>
-            <p className="text-xs text-yellow-700">
-              Stream Video's built-in AI agent is running. Using both agents simultaneously may cause audio conflicts.
+            <div>
+              <h3 className="font-semibold text-slate-900 text-sm">Azure Voice Agent</h3>
+              <p className="text-xs text-slate-500">AI Assistant</p>
+            </div>
+          </div>
+          <Badge 
+            variant="outline"
+            className={`px-2 py-1 text-xs font-medium border ${getStatusColor()}`}
+          >
+            {getStatusText()}
+          </Badge>
+        </div>
+
+        {/* Stream Agent Warning - Compact */}
+        {isStreamAgentActive && (
+          <div className="mt-2 p-2 bg-amber-50 border border-amber-200 rounded-lg">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="h-3 w-3 text-amber-600" />
+              <span className="text-xs font-medium text-amber-800">Stream AI Agent Active</span>
+            </div>
+            <p className="text-xs text-amber-700 mt-1">
+              Using both agents may cause audio conflicts.
             </p>
           </div>
         )}
+      </div>
 
-        {/* Status Indicators */}
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <div className={`w-3 h-3 rounded-full ${isListening ? 'bg-green-500 animate-pulse' : 'bg-gray-300'}`} />
-            <span className="text-sm">Listening</span>
+      {/* Compact Status Indicators */}
+      <div className="flex-shrink-0 p-3 bg-slate-50 border-b border-slate-200">
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-xs font-medium text-slate-700">Status</h4>
+          <span className="text-xs text-slate-500 flex items-center gap-1">
+            <Clock className="h-3 w-3" />
+            {formatTime()}
+          </span>
+        </div>
+        <div className="grid grid-cols-3 gap-1">
+          <div className={`flex items-center gap-1 p-1.5 rounded-md border transition-colors ${
+            isListening ? 'bg-green-50 border-green-200 text-green-700' : 'bg-white border-slate-200 text-slate-500'
+          }`}>
+            <div className={`w-1.5 h-1.5 rounded-full ${isListening ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`} />
+            <span className="text-xs font-medium">Listening</span>
           </div>
           
-          <div className="flex items-center gap-2">
-            <div className={`w-3 h-3 rounded-full ${isSpeaking ? 'bg-blue-500 animate-pulse' : 'bg-gray-300'}`} />
-            <span className="text-sm">Speaking</span>
+          <div className={`flex items-center gap-1 p-1.5 rounded-md border transition-colors ${
+            isSpeaking ? 'bg-blue-50 border-blue-200 text-blue-700' : 'bg-white border-slate-200 text-slate-500'
+          }`}>
+            <div className={`w-1.5 h-1.5 rounded-full ${isSpeaking ? 'bg-blue-500 animate-pulse' : 'bg-slate-300'}`} />
+            <span className="text-xs font-medium">Speaking</span>
           </div>
           
-          <div className="flex items-center gap-2">
-            <div className={`w-3 h-3 rounded-full ${isProcessing ? 'bg-yellow-500 animate-pulse' : 'bg-gray-300'}`} />
-            <span className="text-sm">Processing</span>
+          <div className={`flex items-center gap-1 p-1.5 rounded-md border transition-colors ${
+            isProcessing ? 'bg-amber-50 border-amber-200 text-amber-700' : 'bg-white border-slate-200 text-slate-500'
+          }`}>
+            <div className={`w-1.5 h-1.5 rounded-full ${isProcessing ? 'bg-amber-500 animate-pulse' : 'bg-slate-300'}`} />
+            <span className="text-xs font-medium">Processing</span>
           </div>
         </div>
+      </div>
 
-        {/* Error Display */}
-        {error && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-md">
-            <p className="text-sm text-red-600">{error}</p>
+      {/* Error Display - Compact */}
+      {error && (
+        <div className="flex-shrink-0 p-3 bg-red-50 border-b border-red-200">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-3 w-3 text-red-500" />
+            <p className="text-xs text-red-700">{error}</p>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Controls */}
-        <div className="flex gap-2">
+      {/* Compact Controls */}
+      <div className="flex-shrink-0 p-3 bg-white border-b border-slate-200">
+        <div className="flex gap-2 mb-2">
           <Button
             onClick={handleToggleListening}
             variant={isListening ? "destructive" : "default"}
             size="sm"
-            className="flex-1"
+            className="flex-1 h-8 font-medium text-xs"
             disabled={isProcessing}
           >
             {isListening ? (
               <>
-                <MicOff className="h-4 w-4 mr-2" />
+                <MicOff className="h-3 w-3 mr-1" />
                 Stop Listening
               </>
             ) : (
               <>
-                <Mic className="h-4 w-4 mr-2" />
+                <Mic className="h-3 w-3 mr-1" />
                 Start Listening
               </>
             )}
           </Button>
 
           <Button
-            onClick={handleStopSpeakingWithFeedback}
+            onClick={handleStopSpeaking}
             variant={isSpeaking ? "destructive" : "outline"}
             size="sm"
             disabled={!isSpeaking}
-            className="flex-shrink-0 transition-transform"
+            className="h-8 w-8 p-0"
             title="Stop AI from speaking"
           >
-            <VolumeX className="h-4 w-4" />
-            {isSpeaking && <span className="ml-1 text-xs">Stop</span>}
+            <VolumeX className="h-3 w-3" />
           </Button>
 
           <Button
             onClick={handleClearHistory}
             variant="outline"
             size="sm"
-            className="flex-shrink-0"
+            className="h-8 w-8 p-0"
+            title="Clear conversation history"
           >
-            <RotateCcw className="h-4 w-4" />
+            <RotateCcw className="h-3 w-3" />
           </Button>
         </div>
 
-        {/* Instructions */}
-        <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
-          <p><strong>Tip:</strong> You can interrupt the AI while it's speaking by talking again.</p>
-          <p><strong>Stop:</strong> Use the volume button or press <kbd className="px-1 py-0.5 bg-gray-200 rounded text-xs">Esc</kbd> to immediately stop AI from speaking.</p>
-          <p><strong>Note:</strong> The stop button will immediately halt any ongoing speech.</p>
+        {/* Compact Quick Tips */}
+        <div className="text-xs text-slate-600 bg-slate-50 p-2 rounded-lg border border-slate-200">
+          <div className="flex items-center gap-1 mb-1">
+            <Settings className="h-3 w-3" />
+            <span className="font-medium">Quick Tips</span>
+          </div>
+          <ul className="space-y-0.5 text-xs">
+            <li>• Press <kbd className="px-1 py-0.5 bg-white border border-slate-300 rounded text-xs font-mono">Esc</kbd> to stop AI speech</li>
+            <li>• Talk while AI is speaking to interrupt</li>
+            <li>• Use the stop button for immediate halt</li>
+          </ul>
+        </div>
+      </div>
+
+      {/* Live Transcript - Compact */}
+      {transcript && (
+        <div className="flex-shrink-0 p-3 bg-blue-50 border-b border-blue-200">
+          <div className="flex items-center gap-2 mb-1">
+            <User className="h-3 w-3 text-blue-600" />
+            <span className="text-xs font-medium text-blue-800">You said:</span>
+          </div>
+          <div className="bg-white p-2 rounded-lg border border-blue-200 shadow-sm">
+            <p className="text-xs text-slate-800 leading-relaxed">{transcript}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Processing Indicator - Compact */}
+      {isProcessing && (
+        <div className="flex-shrink-0 p-3 bg-amber-50 border-b border-amber-200">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin text-amber-600" />
+            <div>
+              <p className="text-xs font-medium text-amber-800">Processing your request...</p>
+              <p className="text-xs text-amber-700">Please wait while I think</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Interruption Indicator - Compact */}
+      {isSpeaking && transcript && (
+        <div className="flex-shrink-0 p-3 bg-orange-50 border-b border-orange-200">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-orange-500 rounded-full animate-pulse" />
+            <div>
+              <p className="text-xs font-medium text-orange-800">Interrupting AI</p>
+              <p className="text-xs text-orange-700">Responding to your new input...</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Conversation History - Expanded */}
+      <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div className="flex-shrink-0 p-3 bg-white border-b border-slate-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-slate-600" />
+              <h4 className="text-sm font-medium text-slate-700">Conversation History</h4>
+              {conversationHistory.length > 0 && (
+                <Badge variant="secondary" className="text-xs bg-slate-100 text-slate-600">
+                  {conversationHistory.length} messages
+                </Badge>
+              )}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setShowHistory(!showHistory)}
+              className="h-6 w-6 p-0 hover:bg-slate-100"
+            >
+              <ChevronDown className={`h-3 w-3 transition-transform ${showHistory ? 'rotate-180' : ''}`} />
+            </Button>
+          </div>
         </div>
 
-        {/* Live Transcript */}
-        {transcript && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <User className="h-4 w-4 text-blue-500" />
-              <span className="text-sm font-medium">You:</span>
-            </div>
-            <div className="p-3 bg-blue-50 rounded-md">
-              <p className="text-sm">{transcript}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Processing Indicator */}
-        {isProcessing && (
-          <div className="flex items-center gap-2 p-3 bg-yellow-50 rounded-md">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="text-sm">Processing your request...</span>
-          </div>
-        )}
-
-        {/* Interruption Indicator */}
-        {isSpeaking && transcript && (
-          <div className="flex items-center gap-2 p-3 bg-orange-50 rounded-md">
-            <div className="h-4 w-4 bg-orange-500 rounded-full animate-pulse" />
-            <span className="text-sm">Interrupting AI to respond to your new input...</span>
-          </div>
-        )}
-
-        {/* Speech Stopping Indicator */}
-        {!isSpeaking && isProcessing && (
-          <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-md">
-            <div className="h-4 w-4 bg-blue-500 rounded-full animate-pulse" />
-            <span className="text-sm">Processing your request...</span>
-          </div>
-        )}
-
-        {/* Last Response */}
-        {lastResponse && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Bot className="h-4 w-4 text-green-500" />
-              <span className="text-sm font-medium">Agent:</span>
-            </div>
-            <div className="p-3 bg-green-50 rounded-md">
-              <p className="text-sm">{lastResponse}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Conversation History */}
-        {conversationHistory.length > 0 && (
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="h-4 w-4" />
-              <span className="text-sm font-medium">Conversation History</span>
-            </div>
-            <ScrollArea className="h-32">
-              <div className="space-y-2">
-                {conversationHistory.map((message, index) => (
-                  <div key={index} className="text-xs">
-                    <div className="flex items-center gap-1 mb-1">
-                      {message.role === 'user' ? (
-                        <User className="h-3 w-3 text-blue-500" />
-                      ) : (
-                        <Bot className="h-3 w-3 text-green-500" />
-                      )}
-                      <span className="font-medium capitalize">{message.role}:</span>
+        {showHistory && (
+          <div className="flex-1 min-h-0 overflow-hidden">
+            <ScrollArea className="h-full w-full" ref={scrollAreaRef}>
+              <div className="p-3 space-y-3">
+                {conversationHistory.length === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                      <MessageSquare className="h-6 w-6 text-slate-400" />
                     </div>
-                    <p className="pl-4 text-gray-600">{message.content}</p>
+                    <p className="text-sm font-medium text-slate-600 mb-1">No conversation history yet</p>
+                    <p className="text-xs text-slate-400">Start talking to see messages here</p>
                   </div>
-                ))}
+                ) : (
+                  conversationHistory.map((message, index) => (
+                    <div key={index} className="flex gap-2 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${
+                        message.role === 'user' 
+                          ? 'bg-blue-100 text-blue-600' 
+                          : 'bg-green-100 text-green-600'
+                      }`}>
+                        {message.role === 'user' ? (
+                          <User className="h-3 w-3" />
+                        ) : (
+                          <Bot className="h-3 w-3" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="text-xs font-medium text-slate-700 capitalize">
+                            {message.role === 'user' ? 'You' : 'AI Assistant'}
+                          </span>
+                          <span className="text-xs text-slate-400 flex items-center gap-1">
+                            <Clock className="h-2 w-2" />
+                            {formatTime()}
+                          </span>
+                        </div>
+                        <div className={`p-2 rounded-lg shadow-sm ${
+                          message.role === 'user' 
+                            ? 'bg-blue-50 border border-blue-200' 
+                            : 'bg-green-50 border border-green-200'
+                        }`}>
+                          <p className="text-xs text-slate-800 leading-relaxed">
+                            {message.content}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+
+                {/* Last Response (if not in history yet) */}
+                {lastResponse && conversationHistory.length === 0 && (
+                  <div className="flex gap-2 animate-in fade-in-0 slide-in-from-bottom-2 duration-300">
+                    <div className="w-6 h-6 rounded-full bg-green-100 text-green-600 flex items-center justify-center flex-shrink-0 shadow-sm">
+                      <Bot className="h-3 w-3" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-medium text-slate-700">AI Assistant</span>
+                        <span className="text-xs text-slate-400 flex items-center gap-1">
+                          <Clock className="h-2 w-2" />
+                          {formatTime()}
+                        </span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-green-50 border border-green-200 shadow-sm">
+                        <p className="text-xs text-slate-800 leading-relaxed">
+                          {lastResponse}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </ScrollArea>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }; 
