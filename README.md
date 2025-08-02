@@ -84,6 +84,8 @@ Voxa AI transforms your meetings from passive listening sessions into dynamic, p
 - **🎯 Customizable Agents** - Tailor AI behavior to specific meeting types and roles
 - **📊 Analytics Dashboard** - Track meeting effectiveness and team performance
 - **🔄 Multi-Platform Support** - Works with any video conferencing solution
+## Live Link
+Navigate to [https://voxaai-six.vercel.app](https://voxaai-six.vercel.app)
 
 ## 📸 Screenshots & Demo
 
