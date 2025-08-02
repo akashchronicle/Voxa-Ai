@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import * as SpeechSDK from 'microsoft-cognitiveservices-speech-sdk';
+import { cleanMarkdown } from '@/lib/markdown-cleaner';
 
 interface VoiceAgentConfig {
   speechKey: string;
@@ -18,6 +19,8 @@ interface VoiceAgentState {
   lastResponse: string;
   error: string | null;
 }
+
+
 
 export const useAzureVoiceAgent = (config: VoiceAgentConfig) => {
   const [state, setState] = useState<VoiceAgentState>({
@@ -316,10 +319,22 @@ export const useAzureVoiceAgent = (config: VoiceAgentConfig) => {
 
   // Synthesize and speak the response
   const speakResponse = useCallback((text: string) => {
+    // Clean markdown formatting before sending to TTS
+    const cleanedText = cleanMarkdown(text);
+    
+    // Log the cleaning process for debugging (only in development)
+    if (process.env.NODE_ENV === 'development') {
+      console.log('🔧 Markdown Cleaning:', {
+        original: text.substring(0, 100) + (text.length > 100 ? '...' : ''),
+        cleaned: cleanedText.substring(0, 100) + (cleanedText.length > 100 ? '...' : ''),
+        lengthReduction: text.length - cleanedText.length
+      });
+    }
+    
     if (!synthesizerRef.current || shouldCancelSpeechRef.current) {
       // Fallback to browser speech synthesis
       if ((window as any).speechSynthesis) {
-        const utterance = createBrowserSpeechUtterance(text, 'primary-fallback');
+        const utterance = createBrowserSpeechUtterance(cleanedText, 'primary-fallback');
         (window as any).speechSynthesis.speak(utterance);
         return;
       } else {
@@ -328,21 +343,21 @@ export const useAzureVoiceAgent = (config: VoiceAgentConfig) => {
     }
 
     // Store the current speaking text
-    currentSpeakingRef.current = text;
+    currentSpeakingRef.current = cleanedText;
 
     // Add a small delay to ensure synthesizer is ready
     setTimeout(() => {
       if (shouldCancelSpeechRef.current || !synthesizerRef.current) {
         // Fallback to browser speech synthesis
         if ((window as any).speechSynthesis) {
-          const utterance = createBrowserSpeechUtterance(text, 'delay-fallback');
+          const utterance = createBrowserSpeechUtterance(cleanedText, 'delay-fallback');
           (window as any).speechSynthesis.speak(utterance);
         }
         return;
       }
       
       synthesizerRef.current?.speakTextAsync(
-        text,
+        cleanedText,
         (result: any) => {
           if (result.reason === SpeechSDK.ResultReason.SynthesizingAudioCompleted) {
             // Create custom audio element for playback control
@@ -384,7 +399,7 @@ export const useAzureVoiceAgent = (config: VoiceAgentConfig) => {
           } else {
             // Fallback to browser speech synthesis
             if ((window as any).speechSynthesis) {
-              const utterance = createBrowserSpeechUtterance(text, 'azure-fallback');
+              const utterance = createBrowserSpeechUtterance(cleanedText, 'azure-fallback');
               (window as any).speechSynthesis.speak(utterance);
             }
             setState(prev => ({
@@ -396,7 +411,7 @@ export const useAzureVoiceAgent = (config: VoiceAgentConfig) => {
         (error: any) => {
           // Fallback to browser speech synthesis
           if ((window as any).speechSynthesis) {
-            const utterance = createBrowserSpeechUtterance(text, 'azure-error-fallback');
+            const utterance = createBrowserSpeechUtterance(cleanedText, 'azure-error-fallback');
             (window as any).speechSynthesis.speak(utterance);
           }
           setState(prev => ({
