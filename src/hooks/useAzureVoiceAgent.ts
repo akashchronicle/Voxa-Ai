@@ -52,7 +52,7 @@ export const useAzureVoiceAgent = (config: VoiceAgentConfig) => {
     }
     
     const utterance = new (window as any).SpeechSynthesisUtterance(text);
-    utterance.rate = 0.9;
+    utterance.rate = 1;
     utterance.pitch = 1;
     utterance.volume = 1;
     
@@ -114,6 +114,11 @@ export const useAzureVoiceAgent = (config: VoiceAgentConfig) => {
         configRef.current.speechKey,
         configRef.current.speechRegion
       );
+      speechConfig.setServiceProperty(
+  "SPEECH-EndpointSilenceTimeoutMs",
+  "2000", // 2 seconds pause before it stops
+  SpeechSDK.ServicePropertyChannel.UriQueryParameter
+);
 
       // Configure for real-time recognition
       speechConfig.speechRecognitionLanguage = 'en-US';
