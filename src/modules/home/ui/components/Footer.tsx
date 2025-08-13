@@ -48,7 +48,7 @@ export const Footer = () => {
     <footer className="bg-gradient-to-b from-background to-muted/30 border-t">
       <div className="container mx-auto px-6 py-16">
  {/* Feedback Section */}
- <motion.div
+ {/* <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6 }}
@@ -88,7 +88,7 @@ export const Footer = () => {
               </form>
             </CardContent>
           </Card>
-        </motion.div>
+        </motion.div> */}
 
 
 
@@ -170,9 +170,10 @@ export const Footer = () => {
 
         {/* Bottom Bar */}
         <div className="border-t pt-8 pl-30 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="text-sm text-muted-foreground">
-            © 2024 Voxa AI. All rights reserved. Made with ❤️ by Akash Jha
+          <div className="text-sm text-muted-foreground text-center w-full">
+            © 2025 Voxa AI. All rights reserved. Made with ❤️ by Akash Jha
           </div>
+
           <div className="flex items-center gap-6 text-sm">
             <Link href="/privacy" className="text-muted-foreground hover:text-foreground">
               Privacy
