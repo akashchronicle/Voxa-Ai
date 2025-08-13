@@ -12,7 +12,8 @@ import {
   Code, 
   Coffee,
   Heart,
-  Sparkles
+  Sparkles,
+  Instagram
 } from "lucide-react";
 import Link from "next/link";
 
@@ -127,25 +128,26 @@ export const DeveloperSection = () => {
             {/* Social Links */}
             <div className="flex gap-4">
               <Button variant="outline" size="sm" asChild>
-                <Link href="https://github.com/yourusername" target="_blank">
+                <Link href="https://github.com/akashchronicle" target="_blank">
                   <Github className="h-4 w-4 mr-2" />
                   GitHub
                 </Link>
               </Button>
               <Button variant="outline" size="sm" asChild>
-                <Link href="https://linkedin.com/in/yourusername" target="_blank">
+                <Link href="https://www.linkedin.com/in/akash-jha-6026062b5" target="_blank">
                   <Linkedin className="h-4 w-4 mr-2" />
                   LinkedIn
                 </Link>
               </Button>
               <Button variant="outline" size="sm" asChild>
-                <Link href="https://twitter.com/yourusername" target="_blank">
-                  <Twitter className="h-4 w-4 mr-2" />
-                  Twitter
-                </Link>
-              </Button>
+          <Link href="https://www.instagram.com/akash.chronicle" target="_blank">
+            <Instagram className="h-4 w-4 mr-2" />
+            Instagram
+          </Link>
+        </Button>
+
               <Button variant="outline" size="sm" asChild>
-                <Link href="mailto:akash@voxa.ai">
+                <Link href="mailto:akashxjha@gmail.com">
                   <Mail className="h-4 w-4 mr-2" />
                   Email
                 </Link>
