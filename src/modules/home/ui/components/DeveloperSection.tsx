@@ -21,11 +21,14 @@ const skills = [
 ];
 
 const achievements = [
-  "Built 10+ production applications",
-  "Expert in AI integration",
-  "Open source contributor",
-  "Tech community leader"
+  "Expert in AI integration and scalable software architecture",
+  "Proven problem-solver delivering impactful results under pressure",
+  "Skilled at turning concepts into production-ready solutions",
+  "Recognized for clean, maintainable, high-performance code",
+  "Quick to learn and master emerging technologies",
+  "Experienced in driving community and product growth"
 ];
+
 
 export const DeveloperSection = () => {
   return (
