@@ -154,30 +154,7 @@ export const TestimonialsSection = () => {
         </motion.div>
 
         {/* CTA */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true }}
-          className="mt-16 text-center"
-        >
-          <Card className="bg-gradient-to-r from-primary/10 to-chart-1/10 border-primary/20">
-            <CardContent className="p-8">
-              <h3 className="text-2xl font-bold mb-4">Ready to Transform Your Meetings?</h3>
-              <p className="text-muted-foreground mb-6">
-                Join thousands of teams who have already upgraded their meeting experience
-              </p>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                <Badge variant="secondary" className="text-sm px-4 py-2">
-                  🚀 Start Free Trial
-                </Badge>
-                <Badge variant="outline" className="text-sm px-4 py-2">
-                  📞 Book Demo
-                </Badge>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+        
       </div>
     </section>
   );
